@@ -1,0 +1,19 @@
+---
+- name: create deploy user
+  hosts: webservers
+  become: yes
+
+  tasks:
+
+    - name: create user
+      user:
+        name: deploy
+        groups: sudo
+        append: yes
+
+    - name: create directory
+      file:
+        path: /home/deploy/app
+        state: directory
+        owner: deploy
+        group: deploy
