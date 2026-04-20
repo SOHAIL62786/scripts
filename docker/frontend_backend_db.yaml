@@ -1,0 +1,57 @@
+# Version is optional in newer Compose specs, but version 3.8 is standard for interviews.
+version: '3.8'
+
+services:
+  # 1. DATABASE SERVICE (Stateful tier)
+  db:
+    image: postgres:15-alpine  # Use slim/alpine images for optimization
+    restart: always            # Policy: ensures the DB stays up
+    environment:
+      - POSTGRES_USER=${DB_USER}       # Reference .env for security
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=myapp_db
+    volumes:
+      - db_data:/var/lib/postgresql/data # Named volume for persistence
+    networks:
+      - backend_network
+
+  # 2. CACHE SERVICE (Performance tier)
+  cache:
+    image: redis:7-alpine
+    networks:
+      - backend_network
+
+  # 3. BACKEND SERVICE (Logic tier)
+  backend:
+    build: 
+      context: ./backend      # Points to a directory with a Dockerfile
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASS}@db:5432/myapp_db
+      - REDIS_URL=redis://cache:6379
+    depends_on:               # Startup order: DB/Cache must start before Backend
+      - db
+      - cache
+    networks:
+      - frontend_network
+      - backend_network       # Bridges both networks
+
+  # 4. FRONTEND SERVICE (Presentation tier)
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80"               # HOST:CONTAINER port mapping
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro # Bind mount for local development
+    depends_on:
+      - backend
+    networks:
+      - frontend_network
+
+# TOP-LEVEL DEFINITIONS
+networks:
+  frontend_network:           # Isolated network for user-facing services
+  backend_network:            # Internal network for DB/Cache security
+
+volumes:
+  db_data:                    # Named volume for persistent storage
